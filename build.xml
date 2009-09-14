@@ -1,0 +1,184 @@
+<project name="ArterioJ" default="ij" basedir=".">
+  <description>
+    ArterioJ collateral analysis software
+  </description>
+
+  <!-- ================================================================ -->
+  <!-- Properties and Taskdefs -->
+  <!-- ================================================================ -->
+
+  <property name="imagej" location="./ImageJ"/>
+  <property name="jdbc.driver" value="com.mysql.jdbc.Driver"/>
+  <property name="jdbc.database" value="db146"/>
+  <property name="jdbc.username" value="arterioj"/>
+  <property name="jdbc.password" value="arterioj"/>
+  <property name="jdbc.connection" value="jdbc:mysql://localhost/gracilis"/>
+
+  <!-- ================================================================ -->
+  <!-- Basic and compile/programming tasks -->
+  <!-- ================================================================ -->
+
+  <target name="init">
+    <mkdir dir="target/classes"/>
+  </target>
+
+  <target name="clean">
+    <delete dir="target"/>
+    <delete dir="dist"/>
+    <delete dir="ImageJ/plugins/ArterioJ"/>
+    <delete file="ArterioJ.zip"/>
+  </target>
+
+  <path id="libs">
+    <pathelement path="${imagej}/ij.jar"/>
+    <fileset dir="${basedir}/lib">
+      <include name="**/*.jar"/>
+      <include name="**/*.zip"/>
+    </fileset>
+    <pathelement location="target/${ant.project.name}.jar"/>
+  </path>
+
+  <target name="compile" depends="init">
+    <javac srcdir="src/java" destdir="target/classes"
+           debug="true" debuglevel="lines,source">
+      <classpath refid="libs"/>
+    </javac>
+  </target>
+
+  <target name="dist" depends="init">
+    <mkdir dir="dist/ArterioJ"/>
+    <copy todir="dist/ArterioJ">
+      <fileset file="LICENSE.txt"/>
+      <fileset file="README.txt"/>
+      <fileset file="build.xml"/>
+    </copy>
+    <copy todir="dist/ArterioJ/src">
+      <fileset dir="src"/>
+    </copy>
+    <copy todir="dist/ArterioJ/lib">
+      <fileset dir="lib"/>
+    </copy>
+    <copy todir="dist/ArterioJ/ImageJ">
+      <fileset dir="ImageJ"/>
+    </copy>
+    <zip destfile="ArterioJ.zip"
+	 basedir="dist"
+	 excludes="target"
+	 />
+  </target>
+
+  <!-- ================================================================ -->
+  <!-- ImageJ related tasks -->
+  <!-- ================================================================ -->
+
+  <target name="install.plugin" depends="compile">
+    <mkdir dir="${imagej}/plugins/ArterioJ"/>
+    <copy todir="${imagej}/plugins/ArterioJ">
+      <fileset dir="target/classes"/>
+    </copy>
+  </target>
+
+  <target name="mosaicj" depends="init">
+    <echo file="target/mosaicj.ijm">
+      run("MosaicJ ");
+    </echo>
+    <java dir="${imagej}" jar="${imagej}/ij.jar" fork="true" spawn="false">
+      <jvmarg line="-mx256m"/>
+      <arg line="-macro ${basedir}/target/mosaicj.ijm"/> 
+    </java>
+  </target>
+
+  <target name="imagej" depends="init">
+    <java dir="${imagej}" jar="${imagej}/ij.jar" fork="true" spawn="false">
+      <jvmarg line="-mx256m"/>
+    </java>
+  </target>
+
+  <target name="ij" depends="install.plugin">
+    <echo file="${basedir}/arterioj.ijm">
+      open("${basedir}/images/1-117/8b1R.mosaic.tif"); 
+      run("ArterioJ ");
+    </echo>
+    <java dir="${imagej}" jar="${imagej}/ij.jar" fork="true" spawn="false" classpathref="libs">
+      <jvmarg line="-mx1024m"/>
+      <arg line="-macro ${basedir}/arterioj.ijm"/> 
+<!--      <arg line="-batch"/> -->
+      <sysproperty key="java.awt.headless" value="false"/>
+      <sysproperty key="arterioj.diameter.maxZoom" value="8.0"/>
+      <sysproperty key="arterioj.calibration.pixelwidth" value="0.8"/>
+      <sysproperty key="arterioj.calibration.units" value="microns"/>
+      <sysproperty key="arterioj.labels.xml" value="${basedir}/src/etc/labels.xml"/> 
+      <sysproperty key="arterioj.xml.read" value="true"/>
+      <sysproperty key="arterioj.xml.write" value="true"/>
+      <sysproperty key="arterioj.mysql.read" value="false"/>
+      <sysproperty key="arterioj.mysql.write" value="false"/>
+      <sysproperty key="arterioj.jdbc.driver" value="${jdbc.driver}"/>
+      <sysproperty key="arterioj.jdbc.connection" value="${jdbc.connection}"/>
+      <sysproperty key="arterioj.jdbc.username" value="${jdbc.username}"/>
+      <sysproperty key="arterioj.jdbc.password" value="${jdbc.password}"/>
+    </java>
+  </target>
+
+  <!-- ================================================================ -->
+  <!-- Database administration tasks -->
+  <!-- ================================================================ -->
+     
+  <target name="db.reset-root-password">
+    <echo>
+      See http://www.cyberciti.biz/tips/recover-mysql-root-password.html
+      ps -a | grep mysql 
+      sudo kill (pid)
+      sudo /opt/local/lib/mysql5/bin/mysqld_safe --skip-grant-tables &amp; 
+      sudo /opt/local/bin/mysql5 -u root
+      &gt;use mysql;
+      &gt;select host, user, password from user;
+      &gt;update user set password=PASSWORD('new-password') where user='root'
+      &gt;flush privileges
+      &gt;quit
+      ---------------------------------------------
+    </echo>
+  </target>
+
+  <target name="db.setup">
+    <echo>
+      See http://2tbsp.com/content/install_and_configure_mysql_5_macports 
+      sudo port install mysql5 mysql-connector-java 
+      sudo /opt/local/lib/mysql/bin/mysql_install_db --user=mysql
+      sudo /opt/local/lib/mysql5/bin/mysqld_safe &amp; 
+      sudo /opt/local/lib/mysql/bin/mysqladmin -u root password 'sarkar'
+      sudo /opt/local/bin/mysqladmin5 -u root -p ping
+      sudo /opt/local/bin/mysql5 -u root -p
+      sudo /opt/local/bin/mysqladmin5 -u root -p ping
+      ---------------------------------------------
+      sudo /opt/local/bin/mysql5 -u root -p &lt; src/sql/db146.sql
+      (Password is 'admin')
+      ---------------------------------------------
+    </echo>
+  </target>
+
+  <target name="db.recreate" depends="init">
+    <sql driver="${jdbc.driver}" 
+	 url="${jdbc.connection}" 
+	 userid="${jdbc.username}" 
+	 password="${jdbc.password}" 
+	 classpathref="libs"
+	 src="src/sql/arterioj.sql" />
+    <sql driver="${jdbc.driver}" 
+	 url="${jdbc.connection}" 
+	 userid="${jdbc.username}" 
+	 password="${jdbc.password}" 
+	 classpathref="libs"
+	 src="src/sql/1-146.sql" />
+  </target>
+
+  <!-- ================================================================ -->
+  <!-- Stats and plot generation tasks -->
+  <!-- ================================================================ -->
+
+  <target name="stats">
+    <exec executable="R">
+      <arg line="--vanilla --no-readline --quiet --slave --file=${basedir}/ldip-data.R --args"/>
+    </exec>
+  </target>
+
+</project>

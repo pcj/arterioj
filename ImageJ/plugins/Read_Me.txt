@@ -1,0 +1,1 @@
+open(getDirectory("plugins")+"README.txt");
