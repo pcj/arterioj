@@ -249,6 +249,5 @@ I've you've gotten this far, you're clearly a dedicated user.  Please
 contact me to go over how to set this up for your experiment.  I can
 be reached at:
 
-pcj127@gmail.com or 415-443-5922 (pager)
-
+pcj127@gmail.com
 
